@@ -11,6 +11,7 @@ const configSchema = z.object({
   maxChunkSize: z.coerce.number().int().positive(),
   topK: z.coerce.number().int().positive(),
   retrievalThreshold: z.coerce.number().min(0).max(2),
+  MAX_HISTORY_TURNS: z.number(),
 });
 
 const parsedConfig = configSchema.safeParse({
@@ -21,6 +22,7 @@ const parsedConfig = configSchema.safeParse({
   maxChunkSize: process.env.MAX_CHUNK_SIZE ?? 200,
   topK: process.env.TOP_K ?? 5,
   retrievalThreshold: process.env.RETRIEVAL_THRESHOLD ?? 0.9,
+  MAX_HISTORY_TURNS: process.env.MAX_HISTORY_TURNS ?? 5,
 });
 
 if (!parsedConfig.success) {

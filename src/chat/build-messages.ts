@@ -1,23 +1,5 @@
-import { ModelMessage } from "ai";
+import type { ModelMessage } from "ai";
 
-export function buildMessages(
-  history: ModelMessage[],
-  question: string,
-  context: string,
-): ModelMessage[] {
-  return [
-    ...history,
-    {
-      role: "user",
-      content: `
-      Context:
-
-     ${context}
-
-     Question:
-
-     ${question}
-`,
-    },
-  ];
+export function buildMessages(history: ModelMessage[]): ModelMessage[] {
+  return [...history];
 }

@@ -1,16 +1,24 @@
 import { type ModelMessage } from "ai";
+import { applyHistoryPolicy } from "./history-policy.js";
 
-const history: ModelMessage[] = [];
+let history: ModelMessage[] = [];
+
+function appendMessage(message: ModelMessage): void {
+  history.push(message);
+
+  // Let the policy decide what to keep
+  history = applyHistoryPolicy(history);
+}
 
 export function addUserMessage(question: string) {
-  history.push({
+  appendMessage({
     role: "user",
     content: question,
   });
 }
 
 export function addAssistantMessage(answer: string) {
-  history.push({
+  appendMessage({
     role: "assistant",
     content: answer,
   });
