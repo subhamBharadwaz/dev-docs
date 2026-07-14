@@ -1,6 +1,8 @@
 # dev-docs
 
-A local RAG playground for developer documentation with tool-augmented chat, hybrid retrieval, and basic evaluation workflows.
+> 🚧 **Project Status:** This project is currently under active development and is continuously evolving with new features, architectural improvements, and production-ready capabilities.
+
+Dev Docs is a production-style **Retrieval-Augmented Generation (RAG)** assistant built with **TypeScript**, **Vercel AI SDK**, **Ollama**, and **ChromaDB**. It demonstrates modern RAG architecture with document ingestion, hybrid retrieval, AI SDK tool calling, conversation memory, and an automated evaluation framework for measuring retrieval and answer quality. The project is being developed as a comprehensive reference for building production-ready AI documentation assistants using modern AI engineering practices.
 
 The CLI can:
 
@@ -93,12 +95,12 @@ knowledge/pdfs/          Local PDFs readable by repository tools
 
 ## Tooling available to the agent
 
-| Tool | Purpose |
-| --- | --- |
-| `listDocs` | Lists available Markdown documents from `docs/` |
-| `findDocs` | Returns documentation files relevant to a query |
-| `readDocument` | Reads a full Markdown or PDF document |
-| `retrieve` | Returns relevant documentation content via the retrieval pipeline |
+| Tool           | Purpose                                                           |
+| -------------- | ----------------------------------------------------------------- |
+| `listDocs`     | Lists available Markdown documents from `docs/`                   |
+| `findDocs`     | Returns documentation files relevant to a query                   |
+| `readDocument` | Reads a full Markdown or PDF document                             |
+| `retrieve`     | Returns relevant documentation content via the retrieval pipeline |
 
 The model instructions live in `src/chat/instructions.ts`, and shared model settings live in `src/llm/options.ts`.
 
@@ -154,16 +156,16 @@ cp .env.example .env
 
 Runtime configuration is validated in `src/config.ts`.
 
-| Variable | Default | Description |
-| --- | --- | --- |
-| `DOCS_PATH` | `docs` | Directory containing Markdown docs |
-| `CHROMA_COLLECTION_NAME` | `documentation` | Chroma collection name |
-| `EMBEDDING_MODEL` | `nomic-embed-text:latest` | Ollama embedding model |
-| `CHAT_MODEL` | `gemma4:e2b` | Ollama chat model |
-| `MAX_CHUNK_SIZE` | `200` | Target chunk size |
-| `TOP_K` | `5` | Max retrieved chunks |
-| `RETRIEVAL_THRESHOLD` | `0.9` | Distance cutoff for semantic retrieval |
-| `MAX_HISTORY_TURNS` | `5` | Number of user turns to keep in chat history |
+| Variable                 | Default                   | Description                                  |
+| ------------------------ | ------------------------- | -------------------------------------------- |
+| `DOCS_PATH`              | `docs`                    | Directory containing Markdown docs           |
+| `CHROMA_COLLECTION_NAME` | `documentation`           | Chroma collection name                       |
+| `EMBEDDING_MODEL`        | `nomic-embed-text:latest` | Ollama embedding model                       |
+| `CHAT_MODEL`             | `gemma4:e2b`              | Ollama chat model                            |
+| `MAX_CHUNK_SIZE`         | `200`                     | Target chunk size                            |
+| `TOP_K`                  | `5`                       | Max retrieved chunks                         |
+| `RETRIEVAL_THRESHOLD`    | `0.9`                     | Distance cutoff for semantic retrieval       |
+| `MAX_HISTORY_TURNS`      | `5`                       | Number of user turns to keep in chat history |
 
 ## Usage
 
@@ -201,21 +203,21 @@ pnpm start hybrid "semantic search"
 
 ## Available commands
 
-| Command | What it does |
-| --- | --- |
-| `pnpm start ingest` | Ingests Markdown docs from `docs/` |
-| `pnpm start ingest markdown` | Explicit Markdown ingestion |
-| `pnpm start ingest pdf <path>` | Ingests one PDF file |
-| `pnpm start ask "..."` | Generates an answer for a single question |
-| `pnpm start chat` | Starts interactive chat mode |
-| `pnpm start keyword "..."` | Runs keyword-only retrieval |
-| `pnpm start hybrid "..."` | Runs hybrid retrieval |
-| `pnpm start evaluate` | Runs retrieval and answer evaluations |
-| `pnpm start evaluate retrieval` | Runs retrieval-only evaluation |
-| `pnpm start evaluate answers` | Runs answer-content evaluation |
-| `pnpm build` | Compiles TypeScript to `dist/` |
-| `pnpm typecheck` | Runs TypeScript type checking |
-| `pnpm test` | Runs integration tests |
+| Command                         | What it does                              |
+| ------------------------------- | ----------------------------------------- |
+| `pnpm start ingest`             | Ingests Markdown docs from `docs/`        |
+| `pnpm start ingest markdown`    | Explicit Markdown ingestion               |
+| `pnpm start ingest pdf <path>`  | Ingests one PDF file                      |
+| `pnpm start ask "..."`          | Generates an answer for a single question |
+| `pnpm start chat`               | Starts interactive chat mode              |
+| `pnpm start keyword "..."`      | Runs keyword-only retrieval               |
+| `pnpm start hybrid "..."`       | Runs hybrid retrieval                     |
+| `pnpm start evaluate`           | Runs retrieval and answer evaluations     |
+| `pnpm start evaluate retrieval` | Runs retrieval-only evaluation            |
+| `pnpm start evaluate answers`   | Runs answer-content evaluation            |
+| `pnpm build`                    | Compiles TypeScript to `dist/`            |
+| `pnpm typecheck`                | Runs TypeScript type checking             |
+| `pnpm test`                     | Runs integration tests                    |
 
 ## Evaluation
 
