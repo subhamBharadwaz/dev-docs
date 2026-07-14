@@ -1,14 +1,9 @@
-import { ModelMessage, stepCountIs, streamText } from "ai";
-import { chatModel } from "../ollama/chat.js";
-import { instructions } from "../chat/instructions.js";
-import { tools } from "../tools/index.js";
+import { ModelMessage, streamText } from "ai";
+import { llmOptions } from "./options.js";
 
 export function streamAnswer(messages: ModelMessage[]) {
   return streamText({
-    model: chatModel,
-    instructions,
+    ...llmOptions,
     messages,
-    tools,
-    stopWhen: stepCountIs(5),
   });
 }

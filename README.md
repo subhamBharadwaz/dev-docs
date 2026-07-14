@@ -1,75 +1,54 @@
 # dev-docs
 
-A local RAG playground for developer documentation with tool-augmented chat.
+A local RAG playground for developer documentation with tool-augmented chat, hybrid retrieval, and basic evaluation workflows.
 
-It loads Markdown files from `docs/`, chunks them, embeds them with Ollama, stores vectors in Chroma, retrieves the most relevant chunks, and answers in the CLI with source references. The chat assistant can now also use explicit documentation tools to list files, find matching filenames, read full documents, and retrieve relevant chunks.
+The CLI can:
+
+- ingest Markdown docs from `docs/`
+- ingest a single PDF from a file path
+- answer questions with an Ollama-backed agent
+- use tools to list docs, find relevant docs, read full documents, and retrieve supporting content
+- run retrieval-only or answer-level evaluations
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    A[Markdown docs] --> B[Loader]
+    A[Markdown docs / PDF] --> B[Document loaders]
     B --> C[Chunker]
     C --> D[Embeddings]
     D --> E[(Chroma collection)]
+
     Q[User question] --> H[Conversation history]
     H --> M[Message builder]
-    Q --> R[Tool-aware answer pipeline]
-    R --> T1[listDocs]
-    R --> T2[findDocs]
-    R --> T3[readDocument]
-    R --> T4[retrieve]
-    T4 --> E
-    T1 --> F[docs/ file listing]
-    T2 --> F
-    T3 --> F
-    R --> V[Ollama chat model]
-    V --> W[CLI answer + tools used]
+    Q --> P[Agent execution]
+    M --> P
+    P --> LLM[Ollama chat model]
+    LLM --> T1[listDocs]
+    LLM --> T2[findDocs]
+    LLM --> T3[readDocument]
+    LLM --> T4[retrieve]
+    T4 --> R[Hybrid retrieval pipeline]
+    R --> S[Semantic search]
+    R --> K[Keyword search]
+    S --> E
+    K --> E
+    T1 --> F[docs/ listing]
+    T3 --> G[Document repository]
+    LLM --> O[Streamed answer]
 ```
 
-## Ingestion flow
+## What changed in this version
 
-```mermaid
-sequenceDiagram
-    participant CLI
-    participant Loader
-    participant Chunker
-    participant Ollama
-    participant Chroma
+This codebase now centers around reusable services and pipelines instead of one-off helpers:
 
-    CLI->>Loader: Load docs/
-    Loader->>Chunker: Markdown documents
-    Chunker->>Ollama: Chunk texts for embeddings
-    Ollama-->>Chunker: Vectors
-    Chunker->>Chroma: Upsert ids, text, metadata, embeddings
-    Chroma-->>CLI: Collection updated
-```
-
-## Query and tool flow
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant CLI
-    participant History
-    participant LLM
-    participant Tools
-    participant Docs
-    participant Chroma
-
-    User->>CLI: ask or chat question
-    CLI->>History: append user message
-    CLI->>LLM: send messages + instructions + tools
-    LLM->>Tools: call listDocs / findDocs / readDocument / retrieve as needed
-    Tools->>Docs: read file names or file contents
-    Tools->>Chroma: semantic retrieval when needed
-    Docs-->>Tools: matching files or document text
-    Chroma-->>Tools: relevant chunks
-    Tools-->>LLM: tool results
-    LLM-->>CLI: streamed answer
-    CLI-->>User: answer + tools used
-    CLI->>History: save assistant response
-```
+- ingestion moved to loader-based services
+- PDF ingestion was added via `pdf-parse`
+- retrieval now supports a hybrid semantic + keyword flow
+- retrieved chunks can be grouped back into document-shaped results for tools
+- answer generation was extracted into `generateAnswer()`
+- evaluation now supports retrieval checks and answer-content checks
+- chat adds `/clear` to reset history
 
 ## Stack
 
@@ -77,9 +56,9 @@ sequenceDiagram
 - [`ai`](https://www.npmjs.com/package/ai)
 - [`ai-sdk-ollama`](https://www.npmjs.com/package/ai-sdk-ollama)
 - [`chromadb`](https://www.npmjs.com/package/chromadb)
+- [`pdf-parse`](https://www.npmjs.com/package/pdf-parse)
 - [`zod`](https://www.npmjs.com/package/zod)
 - Ollama
-- local Markdown docs in `docs/`
 
 ## Requirements
 
@@ -91,70 +70,70 @@ sequenceDiagram
 
 ```text
 src/
-  app.ts                 CLI command orchestration
-  chat/                  Prompt, message history, and history policy helpers
-  chroma/                Chroma client and collections
+  agent/                 Agent execution entrypoints
+  chat/                  Prompt building and conversation history
+  chroma/                Chroma client, collections, and storage
   cli/                   Console output helpers
-  context/               Retrieved context assembly
-  embeddings/            Embedding generation
-  evaluation/            Retrieval evaluation cases
-  filesystem/            Docs listing, filename search, and full file reads
-  ingest/                Document loading and chunking
-  llm/                   Tool-enabled answer streaming
+  embeddings/            Embedding generation for docs and queries
+  evaluation/            Retrieval and answer evaluation runners
+  filesystem/            File listing helpers for docs/
+  ingest/                Chunking and document loaders
+  llm/                   Shared LLM options and answer streaming
   ollama/                Ollama model setup
-  query/                 Retrieval pipeline
-  services/              High-level ask flow
-  tools/                 AI tool definitions exposed to the model
-  types/                 Shared types
+  query/                 Semantic, keyword, and hybrid retrieval
+  repository/            Full document reads for Markdown and PDF
+  services/              High-level ask, answer, and ingest flows
+  tools/                 Model-exposed tools
+  types/                 Shared domain types
   utils/                 Small utility helpers
 
-docs/                    Source documents used for RAG
+docs/                    Markdown knowledge base
+knowledge/pdfs/          Local PDFs readable by repository tools
 ```
 
-## New tooling added
+## Tooling available to the agent
 
-The assistant now has four explicit tools available during answering:
-
-| Tool | Purpose | Backing file |
-| --- | --- | --- |
-| `listDocs` | Lists every available Markdown document | `src/tools/list-docs.ts` |
-| `findDocs` | Finds filenames matching a topic or query | `src/tools/find-docs.ts` |
-| `readDocument` | Reads the complete contents of a specific document | `src/tools/read-document.ts` |
-| `retrieve` | Retrieves semantically relevant chunks from Chroma | `src/tools/retrieve-tool.ts` |
-
-These tools are registered in `src/tools/index.ts` and passed into the model in `src/llm/answer.ts`.
-
-## Files added for tool support
-
-| File | Role |
+| Tool | Purpose |
 | --- | --- |
-| `src/tools/index.ts` | Central tool registry |
-| `src/tools/list-docs.ts` | Tool wrapper for listing docs |
-| `src/tools/find-docs.ts` | Tool wrapper for filename search |
-| `src/tools/read-document.ts` | Tool wrapper for full document reads |
-| `src/tools/retrieve-tool.ts` | Tool wrapper for semantic retrieval |
-| `src/filesystem/list-docs.ts` | Reads available Markdown files from `docs/` |
-| `src/filesystem/search-files.ts` | Performs case-insensitive filename matching |
-| `src/filesystem/read-document.ts` | Loads a full Markdown document safely |
-| `src/cli/print-tools.ts` | Prints which tools were used in a response |
-| `src/chat/history-policy.ts` | Trims chat history based on configured turn limits |
+| `listDocs` | Lists available Markdown documents from `docs/` |
+| `findDocs` | Returns documentation files relevant to a query |
+| `readDocument` | Reads a full Markdown or PDF document |
+| `retrieve` | Returns relevant documentation content via the retrieval pipeline |
 
-## Conversation behavior
+The model instructions live in `src/chat/instructions.ts`, and shared model settings live in `src/llm/options.ts`.
 
-The chat flow now keeps conversation history and applies a history policy so only a limited number of user turns are retained. Tool usage is instruction-driven:
+## Retrieval pipeline
 
-- if the user names a specific Markdown file, the assistant should call `readDocument`
-- if the user wants all available docs, it should call `listDocs`
-- if the user is looking for a document by name or topic, it should call `findDocs`
-- if the user asks about concepts in the docs, it should call `retrieve`
+The retrieval flow now has separate steps:
 
-After each answer, the CLI prints a `Tools Used` section when tool calls were made.
+1. `semanticSearch()` retrieves vector matches from Chroma
+2. `keywordSearch()` scores literal term matches across stored chunks
+3. `hybridSearch()` merges and ranks both result sets
+4. `groupChunks()` combines adjacent chunks from the same source into document-like outputs for tools
 
-## Install
+This makes tool responses easier to consume than raw chunk lists alone.
+
+## Ingestion
+
+### Markdown
 
 ```sh
-pnpm install
+pnpm start ingest
 ```
+
+Equivalent to:
+
+```sh
+pnpm start ingest markdown
+```
+
+### PDF
+
+```sh
+pnpm start ingest pdf ./knowledge/pdfs/handbook.pdf
+```
+
+PDF ingestion uses `PdfLoader` and stores the extracted text as chunks in Chroma.
 
 ## Ollama setup
 
@@ -167,15 +146,13 @@ ollama pull gemma4:e2b
 
 ## Configuration
 
-Runtime configuration is validated from environment variables in `src/config.ts`.
-
 Start from:
 
 ```sh
 cp .env.example .env
 ```
 
-Available settings:
+Runtime configuration is validated in `src/config.ts`.
 
 | Variable | Default | Description |
 | --- | --- | --- |
@@ -185,90 +162,75 @@ Available settings:
 | `CHAT_MODEL` | `gemma4:e2b` | Ollama chat model |
 | `MAX_CHUNK_SIZE` | `200` | Target chunk size |
 | `TOP_K` | `5` | Max retrieved chunks |
-| `RETRIEVAL_THRESHOLD` | `0.9` | Distance cutoff for keeping matches |
+| `RETRIEVAL_THRESHOLD` | `0.9` | Distance cutoff for semantic retrieval |
 | `MAX_HISTORY_TURNS` | `5` | Number of user turns to keep in chat history |
 
-This makes it easier to run different environments without changing source code.
+## Usage
 
-## Getting started
-
-### 1. Ingest the docs
-
-```sh
-pnpm start ingest
-```
-
-You will see loading steps for document loading, chunking, embedding, and storage.
-
-### 2. Ask a question
+### Ask one question
 
 ```sh
 pnpm start ask "What is streaming?"
 ```
 
-### 3. Start chat mode
+### Start chat mode
 
 ```sh
 pnpm start chat
 ```
 
-### 4. Run retrieval evaluation
+Chat commands:
+
+- `exit` — quit
+- `/clear` — clear conversation history
+
+### Run evaluations
 
 ```sh
 pnpm start evaluate
+pnpm start evaluate retrieval
+pnpm start evaluate answers
 ```
 
-### 5. Run integration tests
+### Debug retrieval modes
 
 ```sh
-pnpm test
+pnpm start keyword "semantic search"
+pnpm start hybrid "semantic search"
 ```
 
 ## Available commands
 
 | Command | What it does |
 | --- | --- |
-| `pnpm start ingest` | Loads docs, chunks them, embeds them, and stores them in Chroma |
-| `pnpm start ask "..."` | Answers a question with tool calls and streamed output |
-| `pnpm start chat` | Opens an interactive CLI chat loop with history |
-| `pnpm start evaluate` | Runs retrieval checks from `src/evaluation/test-cases.ts` |
+| `pnpm start ingest` | Ingests Markdown docs from `docs/` |
+| `pnpm start ingest markdown` | Explicit Markdown ingestion |
+| `pnpm start ingest pdf <path>` | Ingests one PDF file |
+| `pnpm start ask "..."` | Generates an answer for a single question |
+| `pnpm start chat` | Starts interactive chat mode |
+| `pnpm start keyword "..."` | Runs keyword-only retrieval |
+| `pnpm start hybrid "..."` | Runs hybrid retrieval |
+| `pnpm start evaluate` | Runs retrieval and answer evaluations |
+| `pnpm start evaluate retrieval` | Runs retrieval-only evaluation |
+| `pnpm start evaluate answers` | Runs answer-content evaluation |
 | `pnpm build` | Compiles TypeScript to `dist/` |
 | `pnpm typecheck` | Runs TypeScript type checking |
 | `pnpm test` | Runs integration tests |
 
-## Example sessions
+## Evaluation
 
-### Ask a concept question
+Evaluation cases live in `src/evaluation/test-cases.ts`.
 
-```sh
-pnpm start ask "How does retrieval improve answers?"
-```
+There are now two evaluation paths:
 
-Expected CLI flow:
+- retrieval evaluation checks whether required source documents are retrieved
+- answer evaluation checks whether generated answers contain expected phrases
 
-- retrieval starts with a loading message
-- the model may call `retrieve`
-- the answer is streamed to stdout
-- tools used are printed at the end
-
-### Ask for a specific document
-
-```sh
-pnpm start ask "Summarize tools.md"
-```
-
-Expected CLI flow:
-
-- the model detects a specific filename
-- it calls `readDocument`
-- the answer is generated from the full file contents
-- tools used are printed at the end
+Reports are printed through `src/evaluation/report.ts`.
 
 ## Troubleshooting
 
 ### Ollama model not found
-
-Pull the missing model manually:
 
 ```sh
 ollama pull nomic-embed-text
@@ -277,10 +239,18 @@ ollama pull gemma4:e2b
 
 ### No relevant documentation found
 
-Try rephrasing the question or re-run ingestion:
+Re-run ingestion:
 
 ```sh
 pnpm start ingest
+```
+
+### PDF ingestion fails
+
+Confirm the file path exists and is readable, then retry:
+
+```sh
+pnpm start ingest pdf ./path/to/file.pdf
 ```
 
 ### Docs directory cannot be read
@@ -293,28 +263,12 @@ Check `DOCS_PATH` in `.env` and make sure it points to a folder containing `.md`
 pnpm typecheck
 ```
 
-### Chroma data looks stale
-
-Remove generated Chroma artifacts and ingest again.
-
-Typical local artifacts include:
-
-- `getting-started/`
-- `chroma.sqlite3`
-
-Then rerun:
-
-```sh
-pnpm start ingest
-```
-
 ## Notes
 
-- Answers are constrained to retrieved context and tool results.
-- Retrieval evaluation cases live in `src/evaluation/test-cases.ts`.
-- Tool instructions are defined in `src/chat/instructions.ts`.
-- Tool usage is surfaced in the CLI via `src/cli/print-tools.ts`.
-- This is still a local playground, but the config validation is set up to be safer for production-style runs.
+- answers are generated from tool results and retrieved documentation
+- full document reads are handled through `src/repository/document-repository.ts`
+- hybrid retrieval is used by both `retrieve` and `findDocs`
+- some scaffold files exist for future agent and loader expansion
 
 ## License
 

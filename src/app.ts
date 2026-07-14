@@ -1,20 +1,26 @@
 import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
 import { storeChunks } from "./chroma/store.js";
-import { config } from "./config.js";
 import { embedChunks } from "./embeddings/embedChunks.js";
-import { evaluateRetrieval } from "./evaluation/evaluate.js";
 import { chunkDocuments } from "./ingest/chunk.js";
-import { loadDocuments } from "./ingest/load.js";
 import { ask } from "./services/ask.js";
+import { MarkdownDocumentLoader } from "./ingest/loaders/markdown-loader.js";
+import { ingestDocuments } from "./services/ingest.js";
+import { PdfLoader } from "./ingest/loaders/pdf-loader.js";
+import { DocumentLoader } from "./types/document.js";
+import { clearHistory } from "./chat/history.js";
+import { keywordSearch } from "./query/keyword-search.js";
+import { hybridSearch } from "./query/hybrid-search.js";
+import { runEvaluation } from "./evaluation/runner.js";
 
 export interface AppDependencies {
   ask: (question: string) => Promise<void>;
-  loadDocuments: typeof loadDocuments;
+  MarkdownDocumentLoader: typeof MarkdownDocumentLoader;
+  PdfLoader: typeof PdfLoader;
   chunkDocuments: typeof chunkDocuments;
   embedChunks: typeof embedChunks;
   storeChunks: typeof storeChunks;
-  evaluateRetrieval: typeof evaluateRetrieval;
+  runEvaluation: typeof runEvaluation;
   createInterface: typeof createInterface;
   stdin: typeof stdin;
   stdout: typeof stdout;
@@ -23,11 +29,12 @@ export interface AppDependencies {
 
 const defaultDependencies: AppDependencies = {
   ask,
-  loadDocuments,
+  MarkdownDocumentLoader,
+  PdfLoader,
   chunkDocuments,
   embedChunks,
   storeChunks,
-  evaluateRetrieval,
+  runEvaluation,
   createInterface,
   stdin,
   stdout,
@@ -44,7 +51,9 @@ export function createApp(overrides: Partial<AppDependencies> = {}) {
     });
 
     deps.log("Dev Docs Chat");
-    deps.log("Type 'exit' to quit.\n");
+    deps.log("Commands:");
+    deps.log("  exit   - Quit");
+    deps.log("  /clear - Clear conversation history\n");
 
     try {
       while (true) {
@@ -59,6 +68,22 @@ export function createApp(overrides: Partial<AppDependencies> = {}) {
         }
 
         deps.log("\nSearching documentation...");
+
+        const input = question.trim();
+
+        if (!input) {
+          continue;
+        }
+
+        if (input.toLowerCase() === "exit") {
+          break;
+        }
+
+        if (input === "/clear") {
+          clearHistory();
+          deps.log("Conversation history cleared.\n");
+          continue;
+        }
         await deps.ask(question);
       }
     } finally {
@@ -66,21 +91,33 @@ export function createApp(overrides: Partial<AppDependencies> = {}) {
     }
   }
 
-  async function ingest() {
-    deps.log(`Loading documents from ${config.docsPath}...`);
-    const documents = await deps.loadDocuments();
+  async function ingest(source: string, input?: string) {
+    let loader: DocumentLoader;
 
-    deps.log(`Chunking ${documents.length} documents...`);
-    const chunks = deps.chunkDocuments(documents, {
-      maxChunkSize: config.maxChunkSize,
+    switch (source) {
+      case "markdown":
+        loader = new deps.MarkdownDocumentLoader();
+        break;
+
+      case "pdf":
+        if (!input) {
+          throw new Error(
+            "Missing PDF path.\nUsage: pnpm start ingest pdf <path-to-pdf>",
+          );
+        }
+
+        loader = new deps.PdfLoader(input);
+        break;
+
+      default:
+        throw new Error(
+          `Unknown ingestion source "${source}". Supported sources: markdown, pdf.`,
+        );
+    }
+
+    await ingestDocuments(loader, {
+      log: deps.log,
     });
-
-    deps.log(`Embedding ${chunks.length} chunks with ${config.embeddingModel}...`);
-    const embeddedChunks = await deps.embedChunks(chunks);
-
-    deps.log(`Storing ${embeddedChunks.length} chunks in Chroma...`);
-    await deps.storeChunks(embeddedChunks);
-    deps.log("Ingestion complete.");
   }
 
   async function main(args: string[]) {
@@ -88,14 +125,17 @@ export function createApp(overrides: Partial<AppDependencies> = {}) {
 
     switch (command) {
       case "ingest":
-        await ingest();
+        const [source = "markdown", input] = rest;
+        await ingest(source, input);
         return;
 
       case "ask": {
         const question = rest.join(" ").trim();
 
         if (!question) {
-          throw new Error('Missing question. Usage: pnpm start ask "What is streaming?"');
+          throw new Error(
+            'Missing question. Usage: pnpm start ask "What is streaming?"',
+          );
         }
 
         deps.log("Searching documentation...");
@@ -107,20 +147,41 @@ export function createApp(overrides: Partial<AppDependencies> = {}) {
         await chat();
         return;
 
-      case "evaluate":
-        deps.log("Running retrieval evaluation...");
-        await deps.evaluateRetrieval();
-        return;
+      case "keyword": {
+        const query = rest.join(" ");
 
+        await keywordSearch(query);
+
+        return;
+      }
+
+      case "hybrid": {
+        const query = rest.join(" ");
+
+        await hybridSearch(query);
+
+        return;
+      }
+
+      case "evaluate": {
+        const mode = (rest[0] ?? "all") as "retrieval" | "answers" | "all";
+
+        deps.log(`Running ${mode} evaluation...`);
+        await deps.runEvaluation(mode);
+
+        return;
+      }
       default:
-        deps.log([
-          "Usage:",
-          "",
-          'pnpm start ingest',
-          'pnpm start ask "What is streaming?"',
-          'pnpm start chat',
-          'pnpm start evaluate',
-        ].join("\n"));
+        deps.log(
+          [
+            "Usage:",
+            "",
+            "pnpm start ingest",
+            'pnpm start ask "What is streaming?"',
+            "pnpm start chat",
+            "pnpm start evaluate",
+          ].join("\n"),
+        );
     }
   }
 

@@ -1,11 +1,10 @@
 import { tool } from "ai";
 import { z } from "zod";
-
-import { searchFiles } from "../filesystem/search-files.js";
+import { retrievalPipeline } from "../query/pipeline.js";
 
 export const findDocsTool = tool({
   description:
-    "Finds documentation files whose names match the user's query. Use this when the user asks which document or file talks about a topic, or when they are looking for a documentation file by name.",
+    "Finds documentation files relevant to the user's query. Use this when the user asks which file or document discusses a topic.",
 
   inputSchema: z.object({
     query: z.string(),
@@ -14,12 +13,11 @@ export const findDocsTool = tool({
   outputSchema: z.object({
     files: z.array(z.string()),
   }),
-
   execute: async ({ query }) => {
-    const files = await searchFiles(query);
+    const documents = await retrievalPipeline.retrieve(query);
 
     return {
-      files,
+      files: documents.map((document) => document.source),
     };
   },
 });

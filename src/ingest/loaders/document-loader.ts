@@ -1,7 +1,4 @@
-export interface Document {
-  fileName: string;
-  content: string;
-}
+import { Document } from "../../types/document.js";
 
 export interface DocumentLoader {
   loadDocuments(): Promise<Document[]>;

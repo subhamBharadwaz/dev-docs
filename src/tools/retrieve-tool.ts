@@ -1,7 +1,6 @@
 import { tool } from "ai";
 import { z } from "zod";
-
-import { retrieve } from "../query/retrieve.js";
+import { retrievalPipeline } from "../query/pipeline.js";
 
 export const retrieveTool = tool({
   description:
@@ -15,21 +14,16 @@ export const retrieveTool = tool({
     documents: z.array(
       z.object({
         source: z.string(),
-        chunkIndex: z.number(),
-        text: z.string(),
+        content: z.string(),
       }),
     ),
   }),
 
   execute: async ({ query }) => {
-    const chunks = await retrieve(query);
+    const documents = await retrievalPipeline.retrieve(query);
 
     return {
-      documents: chunks.map((chunk) => ({
-        source: chunk.sourceFile,
-        chunkIndex: chunk.chunkIndex,
-        text: chunk.text,
-      })),
+      documents,
     };
   },
 });

@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { createApp } from "./app.js";
-import { loadDocuments } from "./ingest/load.js";
+import { MarkdownDocumentLoader } from "./ingest/loaders/markdown-loader.js";
 
 async function withTempDir(run: (tempDir: string) => Promise<void>) {
   const tempDir = await mkdtemp(path.join(os.tmpdir(), "dev-docs-"));
@@ -16,7 +16,7 @@ async function withTempDir(run: (tempDir: string) => Promise<void>) {
   }
 }
 
-test("loadDocuments loads sorted markdown files and ignores non-markdown files", async () => {
+test("MarkdownDocumentLoader loads sorted markdown files and ignores non-markdown files", async () => {
   await withTempDir(async (tempDir) => {
     const originalCwd = process.cwd();
     const docsDir = path.join(tempDir, "docs");
@@ -29,7 +29,7 @@ test("loadDocuments loads sorted markdown files and ignores non-markdown files",
     process.chdir(tempDir);
 
     try {
-      const documents = await loadDocuments();
+      const documents = await new MarkdownDocumentLoader().loadDocuments();
 
       assert.deepEqual(
         documents.map((document) => document.fileName),
@@ -41,7 +41,7 @@ test("loadDocuments loads sorted markdown files and ignores non-markdown files",
   });
 });
 
-test("loadDocuments throws a helpful error when no markdown files are present", async () => {
+test("MarkdownDocumentLoader throws a helpful error when no markdown files are present", async () => {
   await withTempDir(async (tempDir) => {
     const originalCwd = process.cwd();
     const docsDir = path.join(tempDir, "docs");
@@ -53,7 +53,7 @@ test("loadDocuments throws a helpful error when no markdown files are present", 
 
     try {
       await assert.rejects(
-        () => loadDocuments(),
+        () => new MarkdownDocumentLoader().loadDocuments(),
         /No Markdown documents were found/,
       );
     } finally {
@@ -66,12 +66,17 @@ test("createApp runs ingest with loading indicators and the expected sequence", 
   const calls: string[] = [];
   const logs: string[] = [];
 
-  const app = createApp({
-    log: (message = "") => logs.push(message),
-    loadDocuments: async () => {
+  class MockMarkdownDocumentLoader {
+    async loadDocuments() {
       calls.push("loadDocuments");
       return [{ fileName: "a.md", content: "hello world" }];
-    },
+    }
+  }
+
+  const app = createApp({
+    log: (message = "") => logs.push(message),
+    MarkdownDocumentLoader:
+      MockMarkdownDocumentLoader as typeof MarkdownDocumentLoader,
     chunkDocuments: (documents) => {
       calls.push(`chunkDocuments:${documents.length}`);
       return [{ id: "1", text: "hello", sourceFile: "a.md", chunkIndex: 0 }];
@@ -95,8 +100,9 @@ test("createApp runs ingest with loading indicators and the expected sequence", 
   ]);
 
   assert.ok(logs.some((message) => message.includes("Loading documents")));
-  assert.ok(logs.some((message) => message.includes("Chunking 1 documents")));
-  assert.ok(logs.some((message) => message.includes("Embedding 1 chunks")));
+  assert.ok(logs.some((message) => message.includes("Chunking documents")));
+  assert.ok(logs.some((message) => message.includes("Created 1 chunks")));
+  assert.ok(logs.some((message) => message.includes("Generating embeddings")));
   assert.ok(logs.some((message) => message.includes("Ingestion complete")));
 });
 

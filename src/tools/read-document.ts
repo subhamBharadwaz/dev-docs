@@ -1,6 +1,6 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { readDocument } from "../filesystem/read-document.js";
+import { readDocument } from "../repository/document-repository.js";
 
 export const readDocumentTool = tool({
   description:

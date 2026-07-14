@@ -29,5 +29,5 @@ export function getHistory(): ModelMessage[] {
 }
 
 export function clearHistory(): void {
-  history.length = 0;
+  history = [];
 }
