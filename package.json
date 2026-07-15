@@ -22,11 +22,14 @@
   },
   "type": "module",
   "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@modelcontextprotocol/server-filesystem": "^2026.7.10",
     "@types/node": "^26.1.1",
     "tsx": "^4.23.0",
     "typescript": "^7.0.2"
   },
   "dependencies": {
+    "@ai-sdk/mcp": "^2.0.12",
     "@chroma-core/default-embed": "^0.1.9",
     "ai": "^7.0.18",
     "ai-sdk-ollama": "^4.0.0",

@@ -13,15 +13,18 @@ export interface ToolCallInfo {
 export async function generateAnswer(question: string) {
   addUserMessage(question);
 
-  const result = await execute({
+  const { result } = await execute({
     history: getHistory(),
   });
 
-  let answer = "";
+  const chunks: string[] = [];
 
   for await (const text of result.textStream) {
-    answer += text;
+    process.stdout.write(text);
+    chunks.push(text);
   }
+
+  const answer = chunks.join("");
 
   addAssistantMessage(answer);
 

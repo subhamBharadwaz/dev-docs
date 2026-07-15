@@ -5,5 +5,5 @@ export interface SearchResult {
 
   semanticScore: number;
   keywordScore: number;
-  finalScore: number;
+  rerankScore: number;
 }

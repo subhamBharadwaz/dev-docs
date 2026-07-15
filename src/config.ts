@@ -11,7 +11,8 @@ const configSchema = z.object({
   maxChunkSize: z.coerce.number().int().positive(),
   topK: z.coerce.number().int().positive(),
   retrievalThreshold: z.coerce.number().min(0).max(2),
-  MAX_HISTORY_TURNS: z.number(),
+  MAX_HISTORY_TURNS: z.coerce.number().int().positive(),
+  reranker: z.enum(["weighted-score", "rrf", "cross-encoder"]),
 });
 
 const parsedConfig = configSchema.safeParse({
@@ -23,6 +24,7 @@ const parsedConfig = configSchema.safeParse({
   topK: process.env.TOP_K ?? 5,
   retrievalThreshold: process.env.RETRIEVAL_THRESHOLD ?? 0.9,
   MAX_HISTORY_TURNS: process.env.MAX_HISTORY_TURNS ?? 5,
+  reranker: process.env.RERANKER ?? "weighted-score",
 });
 
 if (!parsedConfig.success) {

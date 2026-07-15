@@ -50,7 +50,7 @@ export async function keywordSearch(query: string): Promise<SearchResult[]> {
 
       semanticScore: 0,
       keywordScore: score,
-      finalScore: score,
+      rerankScore: 0,
     });
   }
 

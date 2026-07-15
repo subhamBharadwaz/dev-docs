@@ -5,9 +5,7 @@ export async function ask(question: string) {
   try {
     console.log("\nGenerating answer...\n");
 
-    const result = await generateAnswer(question);
-
-    process.stdout.write(result.answer);
+    await generateAnswer(question);
 
     console.log();
   } catch (error) {

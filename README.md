@@ -9,7 +9,8 @@ The CLI can:
 - ingest Markdown docs from `docs/`
 - ingest a single PDF from a file path
 - answer questions with an Ollama-backed agent
-- use tools to list docs, find relevant docs, read full documents, and retrieve supporting content
+- stream responses while the model uses retrieval and MCP filesystem tools
+- inspect keyword-only or reranked hybrid retrieval results
 - run retrieval-only or answer-level evaluations
 
 ## Architecture
@@ -26,31 +27,35 @@ flowchart LR
     Q --> P[Agent execution]
     M --> P
     P --> LLM[Ollama chat model]
-    LLM --> T1[listDocs]
-    LLM --> T2[findDocs]
-    LLM --> T3[readDocument]
-    LLM --> T4[retrieve]
-    T4 --> R[Hybrid retrieval pipeline]
+    LLM --> T1[retrieve]
+    LLM --> T2[MCP filesystem tools]
+    T1 --> R[Hybrid retrieval pipeline]
     R --> S[Semantic search]
     R --> K[Keyword search]
+    R --> RR[Reranker]
     S --> E
     K --> E
-    T1 --> F[docs/ listing]
-    T3 --> G[Document repository]
+    T2 --> F[Filesystem MCP server]
     LLM --> O[Streamed answer]
 ```
 
-## What changed in this version
+## Current capabilities
 
-This codebase now centers around reusable services and pipelines instead of one-off helpers:
+The project currently supports these features:
 
-- ingestion moved to loader-based services
-- PDF ingestion was added via `pdf-parse`
-- retrieval now supports a hybrid semantic + keyword flow
-- retrieved chunks can be grouped back into document-shaped results for tools
-- answer generation was extracted into `generateAnswer()`
-- evaluation now supports retrieval checks and answer-content checks
-- chat adds `/clear` to reset history
+- hybrid retrieval that combines semantic search from Chroma with keyword search over stored chunks
+- configurable reranking via `RERANKER=weighted-score|rrf|cross-encoder` with working weighted-score and reciprocal-rank-fusion strategies
+- a retrieval pipeline that can return reranked chunk results or grouped document-style outputs for tools
+- streamed answer generation in both one-shot ask mode and interactive chat mode
+- built-in `retrieve` tool support for the model during answer generation
+- MCP-based tool loading, currently wired to a filesystem server started through `mcp-server-filesystem`
+- automatic MCP client cleanup on process exit
+- a debug-friendly `hybrid` command that prints semantic, keyword, and rerank scores per chunk
+- PDF and Markdown ingestion into the same Chroma-backed knowledge base
+- retrieval and answer evaluation flows for checking source coverage and answer content
+- chat history reset via `/clear`
+
+In short, the app is now a tool-using RAG assistant with hybrid retrieval, reranking, streaming responses, and MCP tool integration.
 
 ## Stack
 
@@ -58,6 +63,8 @@ This codebase now centers around reusable services and pipelines instead of one-
 - [`ai`](https://www.npmjs.com/package/ai)
 - [`ai-sdk-ollama`](https://www.npmjs.com/package/ai-sdk-ollama)
 - [`chromadb`](https://www.npmjs.com/package/chromadb)
+- [`@ai-sdk/mcp`](https://www.npmjs.com/package/@ai-sdk/mcp)
+- [`@modelcontextprotocol/sdk`](https://www.npmjs.com/package/@modelcontextprotocol/sdk)
 - [`pdf-parse`](https://www.npmjs.com/package/pdf-parse)
 - [`zod`](https://www.npmjs.com/package/zod)
 - Ollama
@@ -82,10 +89,12 @@ src/
   ingest/                Chunking and document loaders
   llm/                   Shared LLM options and answer streaming
   ollama/                Ollama model setup
-  query/                 Semantic, keyword, and hybrid retrieval
+  mcp/                   MCP client setup and tool loading
+  query/                 Semantic, keyword, hybrid, and reranking retrieval
   repository/            Full document reads for Markdown and PDF
   services/              High-level ask, answer, and ingest flows
   tools/                 Model-exposed tools
+  tracing/               Tracing scaffolds for future instrumentation
   types/                 Shared domain types
   utils/                 Small utility helpers
 
@@ -95,12 +104,10 @@ knowledge/pdfs/          Local PDFs readable by repository tools
 
 ## Tooling available to the agent
 
-| Tool           | Purpose                                                           |
-| -------------- | ----------------------------------------------------------------- |
-| `listDocs`     | Lists available Markdown documents from `docs/`                   |
-| `findDocs`     | Returns documentation files relevant to a query                   |
-| `readDocument` | Reads a full Markdown or PDF document                             |
-| `retrieve`     | Returns relevant documentation content via the retrieval pipeline |
+| Tool family | Purpose |
+| --- | --- |
+| `retrieve` | Returns relevant documentation content via the retrieval pipeline |
+| MCP filesystem tools | Loaded at runtime from `mcp-server-filesystem`, allowing the model to use filesystem-backed tools exposed through MCP |
 
 The model instructions live in `src/chat/instructions.ts`, and shared model settings live in `src/llm/options.ts`.
 
@@ -108,12 +115,13 @@ The model instructions live in `src/chat/instructions.ts`, and shared model sett
 
 The retrieval flow now has separate steps:
 
-1. `semanticSearch()` retrieves vector matches from Chroma
+1. `semanticSearch()` retrieves vector matches from Chroma through `queryChroma()`
 2. `keywordSearch()` scores literal term matches across stored chunks
-3. `hybridSearch()` merges and ranks both result sets
-4. `groupChunks()` combines adjacent chunks from the same source into document-like outputs for tools
+3. `hybridSearch()` merges semantic and keyword results into shared `SearchResult` records
+4. the configured reranker scores and sorts the merged results
+5. `groupChunks()` can combine adjacent chunks from the same source into document-like outputs for tools
 
-This makes tool responses easier to consume than raw chunk lists alone.
+This gives the app both score-level retrieval debugging and cleaner document-shaped outputs for downstream tool use.
 
 ## Ingestion
 
@@ -166,6 +174,9 @@ Runtime configuration is validated in `src/config.ts`.
 | `TOP_K`                  | `5`                       | Max retrieved chunks                         |
 | `RETRIEVAL_THRESHOLD`    | `0.9`                     | Distance cutoff for semantic retrieval       |
 | `MAX_HISTORY_TURNS`      | `5`                       | Number of user turns to keep in chat history |
+| `RERANKER`               | `weighted-score`          | Retrieval reranker: `weighted-score`, `rrf`, or `cross-encoder` |
+
+Note: `cross-encoder` is scaffolded in the codebase but not implemented yet.
 
 ## Usage
 

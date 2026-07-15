@@ -10,8 +10,8 @@ import { PdfLoader } from "./ingest/loaders/pdf-loader.js";
 import { DocumentLoader } from "./types/document.js";
 import { clearHistory } from "./chat/history.js";
 import { keywordSearch } from "./query/keyword-search.js";
-import { hybridSearch } from "./query/hybrid-search.js";
 import { runEvaluation } from "./evaluation/runner.js";
+import { retrievalPipeline } from "./query/pipeline.js";
 
 export interface AppDependencies {
   ask: (question: string) => Promise<void>;
@@ -158,7 +158,17 @@ export function createApp(overrides: Partial<AppDependencies> = {}) {
       case "hybrid": {
         const query = rest.join(" ");
 
-        await hybridSearch(query);
+        const results = await retrievalPipeline.retrieveResults(query);
+
+        console.table(
+          results.map((r) => ({
+            source: r.chunk.sourceFile,
+            chunk: r.chunk.chunkIndex,
+            semantic: r.semanticScore.toFixed(3),
+            keyword: r.keywordScore,
+            rerank: r.rerankScore.toFixed(3),
+          })),
+        );
 
         return;
       }
