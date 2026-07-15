@@ -2,16 +2,16 @@
 
 > 🚧 **Project Status:** This project is currently under active development and is continuously evolving with new features, architectural improvements, and production-ready capabilities.
 
-Dev Docs is a production-style **Retrieval-Augmented Generation (RAG)** assistant built with **TypeScript**, **Vercel AI SDK**, **Ollama**, and **ChromaDB**. It demonstrates modern RAG architecture with document ingestion, hybrid retrieval, AI SDK tool calling, conversation memory, and an automated evaluation framework for measuring retrieval and answer quality. The project is being developed as a comprehensive reference for building production-ready AI documentation assistants using modern AI engineering practices.
+Dev Docs is a developer-focused **Retrieval-Augmented Generation (RAG)** assistant built with **TypeScript**, **Vercel AI SDK**, **Ollama**, and **ChromaDB**. It is designed as a practical reference project for building documentation assistants that feel closer to real production systems: documents are ingested into a vector store, questions are answered with tool-using LLM workflows, retrieval can be inspected and reranked, and the whole system can be evaluated end to end.
 
-The CLI can:
+Today, the CLI can:
 
-- ingest Markdown docs from `docs/`
+- ingest Markdown documentation from `docs/`
 - ingest a single PDF from a file path
-- answer questions with an Ollama-backed agent
-- stream responses while the model uses retrieval and MCP filesystem tools
-- inspect keyword-only or reranked hybrid retrieval results
-- run retrieval-only or answer-level evaluations
+- answer questions with an Ollama-backed assistant
+- stream responses while the model calls retrieval and MCP filesystem tools
+- inspect keyword-only and reranked hybrid retrieval output
+- run retrieval-level and answer-level evaluations
 
 ## Architecture
 
@@ -41,21 +41,21 @@ flowchart LR
 
 ## Current capabilities
 
-The project currently supports these features:
+Right now, the project has these core capabilities:
 
-- hybrid retrieval that combines semantic search from Chroma with keyword search over stored chunks
-- configurable reranking via `RERANKER=weighted-score|rrf|cross-encoder` with working weighted-score and reciprocal-rank-fusion strategies
-- a retrieval pipeline that can return reranked chunk results or grouped document-style outputs for tools
-- streamed answer generation in both one-shot ask mode and interactive chat mode
-- built-in `retrieve` tool support for the model during answer generation
-- MCP-based tool loading, currently wired to a filesystem server started through `mcp-server-filesystem`
-- automatic MCP client cleanup on process exit
-- a debug-friendly `hybrid` command that prints semantic, keyword, and rerank scores per chunk
-- PDF and Markdown ingestion into the same Chroma-backed knowledge base
-- retrieval and answer evaluation flows for checking source coverage and answer content
-- chat history reset via `/clear`
+- **Hybrid retrieval:** combines semantic search from Chroma with keyword scoring over stored chunks
+- **Pluggable reranking:** supports `weighted-score`, `rrf`, and a scaffolded `cross-encoder` mode through `RERANKER`
+- **Retrieval pipeline outputs:** can return reranked chunk results for debugging or grouped document-style results for tools
+- **Streaming answers:** responses stream in real time in both single-question and chat flows
+- **Tool-enabled generation:** the model can call the built-in `retrieve` tool while answering
+- **MCP integration:** filesystem tools are loaded dynamically through `mcp-server-filesystem`
+- **Lifecycle cleanup:** the MCP client is closed automatically when the app exits
+- **Retrieval inspection:** the `hybrid` command prints semantic, keyword, and rerank scores for each result
+- **Mixed-source ingestion:** Markdown and PDF content can be ingested into the same Chroma-backed knowledge base
+- **Evaluation support:** retrieval and answer evaluation flows help verify source coverage and answer quality
+- **Session controls:** chat history can be reset with `/clear`
 
-In short, the app is now a tool-using RAG assistant with hybrid retrieval, reranking, streaming responses, and MCP tool integration.
+In short, the app already behaves like a tool-using RAG assistant with inspectable retrieval, configurable reranking, streamed answers, and MCP-powered extensibility.
 
 ## Stack
 
@@ -106,10 +106,10 @@ knowledge/pdfs/          Local PDFs readable by repository tools
 
 | Tool family | Purpose |
 | --- | --- |
-| `retrieve` | Returns relevant documentation content via the retrieval pipeline |
-| MCP filesystem tools | Loaded at runtime from `mcp-server-filesystem`, allowing the model to use filesystem-backed tools exposed through MCP |
+| `retrieve` | Returns relevant documentation content from the retrieval pipeline |
+| MCP filesystem tools | Loaded at runtime from `mcp-server-filesystem`, giving the model access to filesystem-backed MCP tools |
 
-The model instructions live in `src/chat/instructions.ts`, and shared model settings live in `src/llm/options.ts`.
+Model instructions live in `src/chat/instructions.ts`, and shared model settings live in `src/llm/options.ts`.
 
 ## Retrieval pipeline
 
@@ -121,7 +121,7 @@ The retrieval flow now has separate steps:
 4. the configured reranker scores and sorts the merged results
 5. `groupChunks()` can combine adjacent chunks from the same source into document-like outputs for tools
 
-This gives the app both score-level retrieval debugging and cleaner document-shaped outputs for downstream tool use.
+This gives the app two useful views of retrieval: low-level scored results for debugging, and cleaner document-shaped outputs for downstream tool use.
 
 ## Ingestion
 
@@ -234,10 +234,10 @@ pnpm start hybrid "semantic search"
 
 Evaluation cases live in `src/evaluation/test-cases.ts`.
 
-There are now two evaluation paths:
+There are two evaluation paths:
 
-- retrieval evaluation checks whether required source documents are retrieved
-- answer evaluation checks whether generated answers contain expected phrases
+- **retrieval evaluation** checks whether the expected source documents are returned
+- **answer evaluation** checks whether generated answers contain the expected content
 
 Reports are printed through `src/evaluation/report.ts`.
 
@@ -280,8 +280,8 @@ pnpm typecheck
 
 - answers are generated from tool results and retrieved documentation
 - full document reads are handled through `src/repository/document-repository.ts`
-- hybrid retrieval is used by both `retrieve` and `findDocs`
-- some scaffold files exist for future agent and loader expansion
+- reranked hybrid retrieval powers the built-in `retrieve` flow
+- some files are intentionally scaffolded for future MCP, tracing, and reranker expansion
 
 ## License
 
