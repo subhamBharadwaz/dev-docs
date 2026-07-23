@@ -2,13 +2,20 @@ import { ModelMessage } from "ai";
 
 import { buildMessages } from "../chat/build-messages.js";
 import { streamAnswer } from "../llm/answer.js";
+import { emit } from "./emitter.js";
 
 interface ExecuteOptions {
   history: ModelMessage[];
 }
 
 export async function execute({ history }: ExecuteOptions) {
-  const builtMessages = buildMessages(history);
+  emit({ type: "planning-start" });
 
-  return streamAnswer(builtMessages);
+  try {
+    const builtMessages = buildMessages(history);
+
+    return await streamAnswer(builtMessages);
+  } finally {
+    emit({ type: "planning-end" });
+  }
 }

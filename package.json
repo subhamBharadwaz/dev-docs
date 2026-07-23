@@ -1,41 +1,23 @@
 {
-  "name": "dev-docs",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "name": "dev-docs-monorepo",
+  "private": true,
+  "packageManager": "pnpm@11.3.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "start": "tsx src/index.ts",
-    "build": "tsc",
-    "typecheck": "tsc --noEmit",
-    "test": "node --test --import tsx src/**/*.test.ts"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "devEngines": {
-    "packageManager": {
-      "name": "pnpm",
-      "version": "^11.3.0",
-      "onFail": "download"
-    }
-  },
-  "type": "module",
-  "devDependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
-    "@modelcontextprotocol/server-filesystem": "^2026.7.10",
-    "@types/node": "^26.1.1",
-    "tsx": "^4.23.0",
-    "typescript": "^7.0.2"
+    "cli": "pnpm --filter cli start",
+    "chat": "pnpm --filter cli start chat",
+    "ingest": "pnpm --filter cli start ingest",
+    "evaluate": "pnpm --filter cli start evaluate",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "chroma": "pnpm --filter cli chroma",
+    "test": "pnpm -r test"
   },
   "dependencies": {
-    "@ai-sdk/mcp": "^2.0.12",
     "@chroma-core/default-embed": "^0.1.9",
-    "ai": "^7.0.18",
-    "ai-sdk-ollama": "^4.0.0",
-    "chromadb": "^3.5.0",
-    "dotenv": "^17.4.2",
-    "pdf-parse": "^2.4.5",
     "zod": "^4.4.3"
   }
 }

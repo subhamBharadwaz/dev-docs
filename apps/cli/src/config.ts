@@ -19,7 +19,7 @@ const parsedConfig = configSchema.safeParse({
   docsPath: process.env.DOCS_PATH ?? "docs",
   chromaCollectionName: process.env.CHROMA_COLLECTION_NAME ?? "documentation",
   embeddingModel: process.env.EMBEDDING_MODEL ?? "nomic-embed-text:latest",
-  chatModel: process.env.CHAT_MODEL ?? "gemma4:e2b",
+  chatModel: process.env.CHAT_MODEL ?? "qwen3.5:9b",
   maxChunkSize: process.env.MAX_CHUNK_SIZE ?? 200,
   topK: process.env.TOP_K ?? 5,
   retrievalThreshold: process.env.RETRIEVAL_THRESHOLD ?? 0.9,

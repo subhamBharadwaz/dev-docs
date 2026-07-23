@@ -12,6 +12,7 @@ import { clearHistory } from "./chat/history.js";
 import { keywordSearch } from "./query/keyword-search.js";
 import { runEvaluation } from "./evaluation/runner.js";
 import { retrievalPipeline } from "./query/pipeline.js";
+import { subscribe } from "./agent/emitter.js";
 
 export interface AppDependencies {
   ask: (question: string) => Promise<void>;
@@ -55,7 +56,31 @@ export function createApp(overrides: Partial<AppDependencies> = {}) {
     deps.log("  exit   - Quit");
     deps.log("  /clear - Clear conversation history\n");
 
+    let unsubscribe: (() => void) | undefined;
+
     try {
+      unsubscribe = subscribe((event) => {
+        switch (event.type) {
+          case "planning-start":
+            deps.log("Planning...");
+            break;
+
+          case "planning-end":
+            break;
+
+          case "tool-start":
+            deps.log(`Using ${event.tool}...`);
+            break;
+
+          case "tool-end":
+            deps.log(`Finished ${event.tool}`);
+            break;
+
+          case "answer-start":
+            deps.log("Generating answer...");
+            break;
+        }
+      });
       while (true) {
         const question = await rl.question("You> ");
 
@@ -66,8 +91,6 @@ export function createApp(overrides: Partial<AppDependencies> = {}) {
         if (question.trim().toLowerCase() === "exit") {
           break;
         }
-
-        deps.log("\nSearching documentation...");
 
         const input = question.trim();
 
@@ -87,6 +110,7 @@ export function createApp(overrides: Partial<AppDependencies> = {}) {
         await deps.ask(question);
       }
     } finally {
+      unsubscribe?.();
       rl.close();
     }
   }
@@ -138,7 +162,6 @@ export function createApp(overrides: Partial<AppDependencies> = {}) {
           );
         }
 
-        deps.log("Searching documentation...");
         await deps.ask(question);
         return;
       }
